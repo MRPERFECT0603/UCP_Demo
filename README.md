@@ -159,7 +159,7 @@ Each merchant exposes the following UCP-compliant endpoints:
 ### 1. Clone and configure
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/MRPERFECT0603/talkDemo.git
 cd talkDemo
 
 # Add your Groq API key

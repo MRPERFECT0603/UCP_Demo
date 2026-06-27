@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Universal Commerce Protocol — AI Shopping Agent</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #111118;
+    --border:   rgba(255,255,255,0.08);
+    --blue:     #3b82f6;
+    --blue-dim: rgba(59,130,246,0.15);
+    --green:    #22c55e;
+    --green-dim:rgba(34,197,94,0.12);
+    --orange:   #f97316;
+    --orange-dim:rgba(249,115,22,0.12);
+    --purple:   #a855f7;
+    --purple-dim:rgba(168,85,247,0.12);
+    --white:    #f8fafc;
+    --muted:    #64748b;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  html, body { height: 100%; background: var(--bg); font-family: var(--font); color: var(--white); overflow: hidden; }
+
+  /* ── Slide Container ──────────────────────────────────────────── */
+  .deck { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 48px 72px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  .slide.active { opacity: 1; pointer-events: all; }
+
+  /* ── Navigation ───────────────────────────────────────────────── */
+  .nav {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px; z-index: 100;
+  }
+  .nav-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.06);
+    color: var(--white); cursor: pointer; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.14); }
+  .nav-counter { font-size: 13px; color: var(--muted); min-width: 52px; text-align: center; letter-spacing: 0.05em; }
+
+  .progress-bar {
+    position: fixed; top: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+    transition: width 0.4s ease; z-index: 200;
+  }
+
+  /* ── Typography ───────────────────────────────────────────────── */
+  .kicker { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .hero    { font-size: clamp(36px,5vw,68px); font-weight: 700; line-height: 1.1; text-align: center; }
+  .sub     { font-size: clamp(16px,2vw,22px); color: var(--muted); text-align: center; margin-top: 16px; max-width: 640px; line-height: 1.6; }
+  .label   { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+  .caption { font-size: 12px; color: var(--muted); }
+
+  .grad-blue   { background: linear-gradient(135deg,#60a5fa,#3b82f6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .grad-green  { background: linear-gradient(135deg,#4ade80,#22c55e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .grad-purple { background: linear-gradient(135deg,#c084fc,#a855f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .grad-orange { background: linear-gradient(135deg,#fb923c,#f97316); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .grad-multi  { background: linear-gradient(135deg,#60a5fa,#a855f7,#f97316); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+  /* ── Cards & Surfaces ─────────────────────────────────────────── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+  }
+  .card-sm { border-radius: 12px; padding: 16px; }
+  .pill {
+    display: inline-flex; align-items: center; gap-x: 6px;
+    padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid; white-space: nowrap;
+  }
+  .pill-blue   { background: var(--blue-dim);   border-color: rgba(59,130,246,0.3);  color: #93c5fd; }
+  .pill-green  { background: var(--green-dim);  border-color: rgba(34,197,94,0.3);   color: #86efac; }
+  .pill-orange { background: var(--orange-dim); border-color: rgba(249,115,22,0.3);  color: #fdba74; }
+  .pill-purple { background: var(--purple-dim); border-color: rgba(168,85,247,0.3);  color: #d8b4fe; }
+
+  /* ── Grid helpers ─────────────────────────────────────────────── */
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; }
+  .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 100%; }
+  .cols-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; width: 100%; }
+
+  /* ── Flow / Arrow diagrams ────────────────────────────────────── */
+  .flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .flow-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 18px;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .flow-arrow { color: var(--muted); font-size: 18px; }
+  .flow-vert { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .flow-vert .flow-arrow { transform: rotate(90deg); }
+
+  /* ── Code block ───────────────────────────────────────────────── */
+  .code-block {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; font-family: 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.8; color: #e2e8f0;
+  }
+  .token-green  { color: #4ade80; }
+  .token-blue   { color: #60a5fa; }
+  .token-orange { color: #fb923c; }
+  .token-purple { color: #c084fc; }
+  .token-muted  { color: #475569; }
+
+  /* ── Specific slide layouts ───────────────────────────────────── */
+
+  /* Slide 1 – Title */
+  #s1 { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(59,130,246,0.12), transparent); }
+  .s1-grid {
+    position: absolute; inset: 0; opacity: 0.04;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .s1-nodes { position: absolute; inset: 0; pointer-events: none; }
+  .node-dot {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--blue); box-shadow: 0 0 12px var(--blue);
+    animation: pulse-dot 3s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 0.6; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.4); }
+  }
+
+  /* Slide 2 – The Problem Flow */
+  .problem-flow {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+  }
+  .pf-step {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; min-width: 240px;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); font-size: 13px; font-weight: 500;
+  }
+  .pf-icon { font-size: 18px; }
+  .pf-arrow { font-size: 18px; color: var(--muted); margin: 2px 0; }
+  .pf-step.pain { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.06); }
+
+  /* Slide 3 – NxM */
+  .nm-wrap { position: relative; width: 100%; max-width: 700px; }
+  .nm-side  { display: flex; flex-direction: column; gap: 12px; }
+  .nm-center{ display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .nm-box   {
+    padding: 10px 20px; border-radius: 10px; text-align: center;
+    font-size: 13px; font-weight: 600; border: 1px solid; white-space: nowrap;
+  }
+  .nm-agent    { border-color: rgba(59,130,246,0.4); background: var(--blue-dim); color:#93c5fd; }
+  .nm-merchant { border-color: rgba(249,115,22,0.4); background: var(--orange-dim); color:#fdba74; }
+  .nm-label-formula { font-size: 22px; font-weight: 700; color: #ef4444; }
+
+  /* Slide 4 – UCP */
+  .ucp-center {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    position: relative;
+  }
+  .ucp-protocol-bar {
+    background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(168,85,247,0.2));
+    border: 1px solid rgba(99,102,241,0.4);
+    border-radius: 14px; padding: 14px 48px;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.05em;
+    color: #a5b4fc;
+  }
+  .ucp-line { width: 2px; height: 24px; background: linear-gradient(var(--blue),var(--purple)); }
+  .ucp-merchants { display: flex; gap: 32px; margin-top: 0; }
+
+  /* Slides 7 – Architecture */
+  .arch-layer {
+    width: 100%; max-width: 580px;
+    padding: 12px 20px; border-radius: 12px; text-align: center;
+    font-size: 13px; font-weight: 600; border: 1px solid;
+    transition: all 0.3s;
+  }
+
+  /* Slide 11 – Product compare cards */
+  .product-card-demo {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 20px; text-align: center; width: 200px;
+    transition: transform 0.3s;
+  }
+  .product-card-demo:hover { transform: translateY(-4px); }
+  .product-img-demo {
+    width: 120px; height: 80px; object-fit: contain;
+    margin: 0 auto 12px; display: block;
+  }
+
+  /* Slide 12 – State diagram */
+  .state-node {
+    padding: 12px 28px; border-radius: 10px; font-size: 13px; font-weight: 700;
+    border: 1px solid; text-align: center; min-width: 160px;
+  }
+  .state-arrow-down { display: flex; flex-direction: column; align-items: center; }
+  .state-connector  { width: 2px; height: 28px; }
+
+  /* Slide 17 – Compare table */
+  .compare-col {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; flex: 1;
+  }
+  .compare-col.highlight { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.06); }
+  .compare-item { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; font-size: 13px; }
+  .check { color: var(--green); font-size: 16px; }
+  .cross { color: #ef4444; font-size: 16px; }
+
+  /* Slide 18 – checklist */
+  .checklist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 700px; }
+  .check-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--green-dim); border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 12px; padding: 12px 16px; font-size: 13px; font-weight: 600;
+  }
+  .check-icon { font-size: 16px; color: var(--green); }
+
+  /* Slide 20 – Takeaways */
+  .takeaway {
+    font-size: clamp(20px,2.5vw,32px); font-weight: 700;
+    text-align: center; padding: 18px 40px;
+    border-radius: 16px; width: 100%; max-width: 700px;
+    border: 1px solid var(--border); background: var(--surface);
+    position: relative; overflow: hidden;
+  }
+  .takeaway::before {
+    content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+  }
+  .takeaway.t1::before { background: var(--blue); }
+  .takeaway.t2::before { background: var(--green); }
+  .takeaway.t3::before { background: var(--purple); }
+  .takeaway.t4::before { background: var(--orange); }
+
+  /* Keyboard hint */
+  .key-hint {
+    position: fixed; top: 20px; right: 24px; font-size: 11px; color: var(--muted);
+  }
+
+  /* Slide number */
+  .slide-num {
+    position: fixed; top: 20px; left: 24px; font-size: 11px; color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="slide-num" id="slideNum">01 / 21</div>
+<div class="key-hint">← → or click arrows</div>
+
+<div class="deck" id="deck">
+
+  <!-- ── Slide 1 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s1">
+    <div class="s1-grid"></div>
+    <div class="s1-nodes">
+      <div class="node-dot" style="top:18%;left:12%;animation-delay:0s"></div>
+      <div class="node-dot" style="top:72%;left:8%;animation-delay:0.4s;background:var(--purple);box-shadow:0 0 12px var(--purple)"></div>
+      <div class="node-dot" style="top:22%;right:14%;animation-delay:0.8s;background:var(--green);box-shadow:0 0 12px var(--green)"></div>
+      <div class="node-dot" style="top:68%;right:10%;animation-delay:1.2s;background:var(--orange);box-shadow:0 0 12px var(--orange)"></div>
+      <div class="node-dot" style="top:45%;left:5%;animation-delay:1.6s"></div>
+      <div class="node-dot" style="top:48%;right:6%;animation-delay:2s;background:var(--purple);box-shadow:0 0 12px var(--purple)"></div>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:20px;">
+      <div class="pill pill-blue" style="font-size:13px;padding:7px 20px;">Developer Conference Demo</div>
+      <h1 class="hero" style="max-width:860px;">
+        <span class="grad-blue">Universal Commerce</span><br/>
+        <span class="grad-purple">Protocol</span>
+      </h1>
+      <p class="sub">Building an AI Shopping Agent for Multi-Merchant Commerce</p>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
+        <span class="pill pill-blue">AI Agent</span>
+        <span class="pill pill-green">UCP Protocol</span>
+        <span class="pill pill-orange">Multi-Merchant</span>
+        <span class="pill pill-purple">Real Checkout</span>
+      </div>
+      <div style="margin-top:32px;display:flex;gap:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--border);padding-top:24px;width:100%;max-width:500px;justify-content:center;">
+        <span>Vivek Shaurya</span>
+        <span>·</span>
+        <span>SAP CX</span>
+        <span>·</span>
+        <span id="slideDate"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 2 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s2">
+    <div class="kicker">The Problem</div>
+    <h2 class="hero" style="font-size:clamp(28px,4vw,52px);max-width:800px;margin-bottom:32px;">
+      Shopping has changed.<br/>
+      <span style="color:var(--muted);">Checkout hasn't.</span>
+    </h2>
+    <div style="display:flex;gap:40px;align-items:flex-start;max-width:860px;width:100%;">
+      <div class="problem-flow" style="flex:1;">
+        <div class="pf-step"><span class="pf-icon">👤</span>User has a question</div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><span class="pf-icon">🤖</span>Asks ChatGPT / Gemini</div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step"><span class="pf-icon">💬</span>Gets a recommendation</div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step pain"><span class="pf-icon">🔗</span>Leaves the conversation</div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step pain"><span class="pf-icon">🏪</span>Opens merchant website</div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step pain"><span class="pf-icon">🔍</span>Searches again manually</div>
+        <div class="pf-arrow">↓</div>
+        <div class="pf-step pain"><span class="pf-icon">🛒</span>Add to cart · Checkout</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:14px;padding-top:4px;">
+        <div class="card card-sm" style="border-color:rgba(239,68,68,0.3);">
+          <div class="label" style="color:#f87171;font-size:12px;">❌ The Context Break</div>
+          <div class="caption" style="margin-top:6px;line-height:1.6;">The AI understood your need perfectly — but it <strong style="color:var(--white);">cannot act on it</strong>. Every purchase still requires the user to manually bridge the gap between the AI world and the commerce world.</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(249,115,22,0.3);">
+          <div class="label" style="color:#fdba74;font-size:12px;">📉 Conversion Loss</div>
+          <div class="caption" style="margin-top:6px;line-height:1.6;">Each step outside the AI conversation is a drop-off point. Users lose the AI-generated context — product details, comparisons, reasoning — the moment they leave.</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);">
+          <div class="label" style="color:#d8b4fe;font-size:12px;">🔮 The Vision</div>
+          <div class="caption" style="margin-top:6px;line-height:1.6;">The AI should be able to <strong style="color:var(--white);">complete the transaction</strong> without the user ever leaving the conversation.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 3 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s3">
+    <div class="kicker">The Scalability Problem</div>
+    <h2 class="hero" style="font-size:clamp(26px,3.5vw,48px);margin-bottom:40px;">
+      Every merchant requires<br/>
+      <span class="grad-orange">a different integration</span>
+    </h2>
+    <div style="display:flex;align-items:center;gap:32px;max-width:800px;width:100%;">
+      <!-- Agents -->
+      <div class="nm-side" style="flex:1;">
+        <div class="nm-box nm-agent">Agent A</div>
+        <div class="nm-box nm-agent">Agent B</div>
+        <div class="nm-box nm-agent">Agent C</div>
+        <div class="nm-box nm-agent">Agent D</div>
+      </div>
+      <!-- Lines visual -->
+      <div style="flex:1.2;display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <div style="font-size:32px;color:var(--muted);">⟨⟨⟨</div>
+        <div style="padding:10px 20px;border-radius:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:12px;font-weight:700;color:#f87171;text-align:center;line-height:1.5;">Custom APIs<br/>per merchant</div>
+        <div style="font-size:32px;color:var(--muted);">⟩⟩⟩</div>
+      </div>
+      <!-- Merchants -->
+      <div class="nm-side" style="flex:1;">
+        <div class="nm-box nm-merchant">Flipkart</div>
+        <div class="nm-box nm-merchant">Myntra</div>
+        <div class="nm-box nm-merchant">Amazon</div>
+      </div>
+    </div>
+    <div style="margin-top:36px;padding:16px 32px;border-radius:14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);">
+      <span style="font-size:28px;font-weight:800;color:#f87171;">N Agents × M Merchants = N×M Integrations</span>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:740px;">
+      <div style="flex:1;min-width:200px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:12px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--white);">Today:</strong> Every AI agent (ChatGPT plugin, Gemini extension, custom bot) must build a bespoke integration for every merchant it wants to transact with.
+      </div>
+      <div style="flex:1;min-width:200px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:12px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--white);">The cost:</strong> Duplicated engineering, inconsistent behavior, brittle maintenance — and merchants must support every agent individually.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 4 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s4">
+    <div class="kicker">The Solution</div>
+    <h2 class="hero" style="font-size:clamp(28px,4vw,56px);margin-bottom:40px;">
+      One Protocol.<br/>
+      <span class="grad-multi">Every Merchant.</span>
+    </h2>
+    <div class="ucp-center">
+      <!-- Agent -->
+      <div class="nm-box nm-agent" style="min-width:200px;font-size:15px;padding:14px 32px;">🤖  AI Agent</div>
+      <div class="ucp-line"></div>
+      <!-- Protocol bar -->
+      <div class="ucp-protocol-bar">⚡ Universal Commerce Protocol</div>
+      <!-- Branch lines SVG -->
+      <svg width="320" height="36" viewBox="0 0 320 36" style="overflow:visible;">
+        <line x1="160" y1="0" x2="60"  y2="36" stroke="rgba(99,102,241,0.4)" stroke-width="2"/>
+        <line x1="160" y1="0" x2="160" y2="36" stroke="rgba(99,102,241,0.4)" stroke-width="2"/>
+        <line x1="160" y1="0" x2="260" y2="36" stroke="rgba(99,102,241,0.4)" stroke-width="2"/>
+      </svg>
+      <!-- Merchants -->
+      <div class="ucp-merchants">
+        <div class="nm-box nm-merchant" style="font-size:13px;">🏪 Flipkart UCP</div>
+        <div class="nm-box nm-merchant" style="font-size:13px;">🏪 Myntra UCP</div>
+        <div class="nm-box nm-merchant" style="font-size:13px;">🏪 Amazon UCP</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:36px;flex-wrap:wrap;justify-content:center;">
+      <span class="pill pill-blue">Discover</span>
+      <span class="pill pill-green">Compare</span>
+      <span class="pill pill-orange">Checkout</span>
+      <span class="pill pill-purple">Complete</span>
+    </div>
+    <p style="margin-top:18px;font-size:13px;color:var(--muted);text-align:center;max-width:560px;line-height:1.7;">
+      Any agent that speaks UCP can transact with any UCP-compliant merchant — <strong style="color:var(--white);">without a single line of merchant-specific code</strong>. New merchants plug in by exposing a standard manifest. New agents plug in by reading it.
+    </p>
+  </div>
+
+  <!-- ── Slide 5 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s5">
+    <div class="kicker">Protocol Overview</div>
+    <h2 class="hero" style="font-size:clamp(26px,3.5vw,48px);margin-bottom:40px;">What is UCP?</h2>
+    <div class="code-block" style="max-width:560px;width:100%;margin-bottom:32px;">
+      <span class="token-blue">GET</span> <span class="token-green">/.well-known/ucp</span><br/>
+      <br/>
+      <span class="token-purple">{</span><br/>
+      &nbsp;&nbsp;<span class="token-orange">"capabilities"</span><span class="token-muted">:</span> <span class="token-purple">{</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"catalog"</span><span class="token-muted">:</span>  <span class="token-green">"Search &amp; filter products"</span><span class="token-muted">,</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"checkout"</span><span class="token-muted">:</span> <span class="token-green">"Create &amp; manage cart"</span><span class="token-muted">,</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"payment"</span><span class="token-muted">:</span>  <span class="token-green">"Init &amp; verify payment"</span><span class="token-muted">,</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"orders"</span><span class="token-muted">:</span>   <span class="token-green">"Track order status"</span><br/>
+      &nbsp;&nbsp;<span class="token-purple">}</span><br/>
+      <span class="token-purple">}</span>
+    </div>
+    <div class="cols-4" style="max-width:760px;">
+      <div class="card card-sm" style="text-align:center;border-color:rgba(59,130,246,0.3);">
+        <div style="font-size:28px;">🔍</div>
+        <div class="label" style="margin-top:8px;color:#93c5fd;">Catalog</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Search by keyword, brand, color, price range. Returns ranked product list with images and metadata.</div>
+      </div>
+      <div class="card card-sm" style="text-align:center;border-color:rgba(34,197,94,0.3);">
+        <div style="font-size:28px;">🛒</div>
+        <div class="label" style="margin-top:8px;color:#86efac;">Checkout</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Create session, update quantity, apply coupons. Merchant owns cart state; agent holds the session ID.</div>
+      </div>
+      <div class="card card-sm" style="text-align:center;border-color:rgba(249,115,22,0.3);">
+        <div style="font-size:28px;">💳</div>
+        <div class="label" style="margin-top:8px;color:#fdba74;">Payment</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Init returns a payment token + available methods. Verify confirms the transaction and returns an order.</div>
+      </div>
+      <div class="card card-sm" style="text-align:center;border-color:rgba(168,85,247,0.3);">
+        <div style="font-size:28px;">📦</div>
+        <div class="label" style="margin-top:8px;color:#d8b4fe;">Orders</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Track delivery status, get ETA, retrieve order history by order ID.</div>
+      </div>
+    </div>
+    <p style="margin-top:20px;font-size:12px;color:var(--muted);text-align:center;max-width:600px;line-height:1.7;">
+      Each capability is <strong style="color:var(--white);">optional and self-describing</strong> — the agent reads the manifest first and only calls capabilities the merchant has declared. Merchants can adopt UCP incrementally, one capability at a time.
+    </p>
+  </div>
+
+  <!-- ── Slide 6 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s6">
+    <div class="kicker">Demo Scenario</div>
+    <h2 class="hero" style="font-size:clamp(20px,2.8vw,38px);margin-bottom:36px;max-width:700px;color:var(--muted);font-style:italic;">
+      "Find me black Nike shoes under ₹5000."
+    </h2>
+    <div class="flow" style="max-width:900px;width:100%;">
+      <div class="flow-item" style="border-color:rgba(59,130,246,0.4);background:var(--blue-dim);color:#93c5fd;">👤 User</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">🔮 Understand Intent</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(168,85,247,0.4);background:var(--purple-dim);color:#d8b4fe;">🔍 Discover Merchants</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;">📦 Search Catalogs</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(249,115,22,0.4);background:var(--orange-dim);color:#fdba74;">⚖️ Compare Prices</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item">🛒 Create Checkout</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;">✅ Order Placed</div>
+    </div>
+    <div style="margin-top:40px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:800px;">
+      <div style="padding:12px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;font-size:12px;text-align:center;color:var(--muted);line-height:1.6;">
+        All steps happen <strong style="color:var(--white);">inside the conversation</strong><br/>— the user never leaves the chat interface.
+      </div>
+      <div style="padding:12px 18px;background:var(--blue-dim);border:1px solid rgba(59,130,246,0.3);border-radius:12px;font-size:12px;text-align:center;color:#93c5fd;line-height:1.6;">
+        🧠 LLM extracts intent<br/><strong style="color:var(--white);">once per message</strong> — everything else is deterministic code
+      </div>
+      <div style="padding:12px 18px;background:var(--green-dim);border:1px solid rgba(34,197,94,0.3);border-radius:12px;font-size:12px;text-align:center;color:#86efac;line-height:1.6;">
+        ⚡ Merchants queried in <strong style="color:var(--white);">parallel</strong><br/>via UCP — results merged in &lt;500ms
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 7 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s7">
+    <div class="kicker">System Architecture</div>
+    <h2 class="hero" style="font-size:clamp(22px,2.8vw,40px);margin-bottom:36px;">Full Stack Overview</h2>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:620px;">
+      <div class="arch-layer" style="border-color:rgba(59,130,246,0.4);background:var(--blue-dim);color:#93c5fd;">
+        ⚛️  React Chat UI
+        <span style="font-size:11px;opacity:0.6;margin-left:8px;">localhost:5173</span>
+        <span style="font-size:10px;margin-left:auto;opacity:0.5;">Vite · TailwindCSS · React Query</span>
+      </div>
+      <div style="width:2px;height:16px;background:var(--border);"></div>
+      <div class="arch-layer" style="border-color:rgba(168,85,247,0.4);background:var(--purple-dim);color:#d8b4fe;">
+        🤖  AI Shopping Agent API
+        <span style="font-size:11px;opacity:0.6;margin-left:8px;">localhost:4000</span>
+        <span style="font-size:10px;margin-left:auto;opacity:0.5;">Express · TypeScript · Groq LLM</span>
+      </div>
+      <div style="width:2px;height:16px;background:var(--border);"></div>
+      <div class="arch-layer" style="border-color:rgba(249,115,22,0.35);background:var(--orange-dim);color:#fdba74;">
+        ⚙️  Commerce Orchestrator
+        <span style="font-size:10px;margin-left:auto;opacity:0.5;">Intent → Deterministic UCP Calls</span>
+      </div>
+      <div style="width:2px;height:16px;background:var(--border);"></div>
+      <div class="arch-layer" style="border-color:rgba(99,102,241,0.4);background:rgba(99,102,241,0.08);color:#a5b4fc;">
+        ⚡  Universal Commerce Protocol
+        <span style="font-size:10px;margin-left:auto;opacity:0.5;">Standardized REST · /.well-known/ucp</span>
+      </div>
+      <div style="display:flex;gap:0;width:100%;max-width:500px;">
+        <div style="width:50%;display:flex;flex-direction:column;align-items:center;">
+          <div style="width:2px;height:16px;background:var(--border);"></div>
+          <div class="arch-layer" style="width:100%;border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;font-size:12px;">🏪 Flipkart UCP :3001<br/><span style="font-size:10px;opacity:0.5;font-weight:400;">5 products · Full checkout + payment</span></div>
+        </div>
+        <div style="width:50%;display:flex;flex-direction:column;align-items:center;">
+          <div style="width:2px;height:16px;background:var(--border);"></div>
+          <div class="arch-layer" style="width:100%;border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;font-size:12px;">🏪 Myntra UCP :3002<br/><span style="font-size:10px;opacity:0.5;font-weight:400;">5 products · Full checkout + payment</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 8 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s8">
+    <div class="kicker">Core Component</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:8px;">The AI Shopping Agent</h2>
+    <p class="sub" style="margin-bottom:36px;font-size:14px;">The agent is <strong style="color:#f87171;">NOT</strong> a merchant. It is an orchestration layer.</p>
+    <div class="cols-3" style="max-width:780px;">
+      <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);">
+        <div style="font-size:24px;margin-bottom:8px;">🧠</div>
+        <div class="label" style="color:#93c5fd;">Intent Extraction</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">LLM understands natural language, returns structured JSON intents</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);">
+        <div style="font-size:24px;margin-bottom:8px;">🗺️</div>
+        <div class="label" style="color:#d8b4fe;">Merchant Discovery</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Discovers capabilities dynamically via UCP manifest endpoint</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(249,115,22,0.3);">
+        <div style="font-size:24px;margin-bottom:8px;">⚙️</div>
+        <div class="label" style="color:#fdba74;">Commerce Orchestration</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Deterministic business logic — no LLM in the checkout path</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+        <div style="font-size:24px;margin-bottom:8px;">💬</div>
+        <div class="label" style="color:#86efac;">Conversation State</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Remembers merchant, cart, products across the full session</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(99,102,241,0.3);">
+        <div style="font-size:24px;margin-bottom:8px;">🔌</div>
+        <div class="label" style="color:#a5b4fc;">Protocol Adapter</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">Translates intents into UCP API calls across all merchants</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(251,191,36,0.3);">
+        <div style="font-size:24px;margin-bottom:8px;">🔒</div>
+        <div class="label" style="color:#fcd34d;">Separation of Concerns</div>
+        <div class="caption" style="margin-top:6px;line-height:1.5;">LLM = language. Backend = business logic. Clean boundary.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 9 ─────────────────────────────────────────────────── -->
+  <div class="slide" id="s9">
+    <div class="kicker">UCP Core</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Merchant Discovery</h2>
+    <div class="cols-2" style="max-width:840px;align-items:start;">
+      <div class="code-block">
+        <span class="token-blue">GET</span> <span class="token-green">/.well-known/ucp</span><br/>
+        <br/>
+        <span class="token-muted">// Response from Flipkart</span><br/>
+        <span class="token-purple">{</span><br/>
+        &nbsp;&nbsp;<span class="token-orange">"merchant"</span><span class="token-muted">:</span> <span class="token-green">"Flipkart"</span><span class="token-muted">,</span><br/>
+        &nbsp;&nbsp;<span class="token-orange">"version"</span><span class="token-muted">:</span>  <span class="token-green">"1.0"</span><span class="token-muted">,</span><br/>
+        &nbsp;&nbsp;<span class="token-orange">"capabilities"</span><span class="token-muted">:</span> <span class="token-purple">{</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"catalog"</span><span class="token-muted">:</span>  <span class="token-purple">{ </span><span class="token-orange">"endpoint"</span><span class="token-muted">:</span> <span class="token-green">"/ucp/catalog/search"</span> <span class="token-purple">}</span><span class="token-muted">,</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"checkout"</span><span class="token-muted">:</span> <span class="token-purple">{ </span><span class="token-orange">"endpoint"</span><span class="token-muted">:</span> <span class="token-green">"/ucp/checkout"</span> <span class="token-purple">}</span><span class="token-muted">,</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"payment"</span><span class="token-muted">:</span>  <span class="token-purple">{</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"initEndpoint"</span><span class="token-muted">:</span>   <span class="token-green">"/ucp/checkout/:id/payment/init"</span><span class="token-muted">,</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="token-orange">"verifyEndpoint"</span><span class="token-muted">:</span> <span class="token-green">"/ucp/checkout/:id/payment/verify"</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="token-purple">}</span><br/>
+        &nbsp;&nbsp;<span class="token-purple">}</span><br/>
+        <span class="token-purple">}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+          <div class="label" style="color:#86efac;">✅ No Hardcoding</div>
+          <div class="caption" style="margin-top:6px;">Agent discovers endpoints dynamically at runtime</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);">
+          <div class="label" style="color:#93c5fd;">🔌 Plug &amp; Play</div>
+          <div class="caption" style="margin-top:6px;">Add a new merchant by registering one URL</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);">
+          <div class="label" style="color:#d8b4fe;">📋 Capability-Driven</div>
+          <div class="caption" style="margin-top:6px;">Agent only calls what the merchant advertises</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(249,115,22,0.3);">
+          <div class="label" style="color:#fdba74;">🔄 Auto-Refresh</div>
+          <div class="caption" style="margin-top:6px;">Re-fetches manifest before payment to get latest endpoints</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 10 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s10">
+    <div class="kicker">Catalog Search</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Parallel Product Search</h2>
+    <div style="display:flex;align-items:flex-start;gap:32px;max-width:860px;width:100%;">
+      <!-- LLM output -->
+      <div style="flex:1;">
+        <div class="caption" style="margin-bottom:8px;text-align:center;">LLM Intent</div>
+        <div class="code-block" style="font-size:12px;">
+          <span class="token-purple">{</span><br/>
+          &nbsp;<span class="token-orange">"intent"</span><span class="token-muted">:</span> <span class="token-green">"SEARCH"</span><span class="token-muted">,</span><br/>
+          &nbsp;<span class="token-orange">"filters"</span><span class="token-muted">:</span> <span class="token-purple">{</span><br/>
+          &nbsp;&nbsp;<span class="token-orange">"query"</span><span class="token-muted">:</span> <span class="token-green">"Nike"</span><span class="token-muted">,</span><br/>
+          &nbsp;&nbsp;<span class="token-orange">"color"</span><span class="token-muted">:</span> <span class="token-green">"black"</span><span class="token-muted">,</span><br/>
+          &nbsp;&nbsp;<span class="token-orange">"maxPrice"</span><span class="token-muted">:</span> <span class="token-blue">5000</span><br/>
+          &nbsp;<span class="token-purple">}</span><br/>
+          <span class="token-purple">}</span>
+        </div>
+      </div>
+      <!-- Arrows -->
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:40px;gap:6px;">
+        <div style="font-size:28px;color:var(--muted);">⟹</div>
+        <div class="caption">parallel</div>
+      </div>
+      <!-- Merchants -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+        <div class="caption" style="margin-bottom:2px;text-align:center;">Merchant Queries</div>
+        <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);">
+          <div class="label" style="color:#93c5fd;font-size:12px;">Flipkart</div>
+          <div class="caption" style="margin-top:3px;font-size:11px;">/ucp/catalog/search?q=Nike&amp;color=black&amp;maxPrice=5000</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(249,115,22,0.3);">
+          <div class="label" style="color:#fdba74;font-size:12px;">Myntra</div>
+          <div class="caption" style="margin-top:3px;font-size:11px;">/ucp/catalog/search?q=Nike&amp;color=black&amp;maxPrice=5000</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:40px;gap:6px;">
+        <div style="font-size:28px;color:var(--muted);">⟹</div>
+        <div class="caption">merge &amp; rank</div>
+      </div>
+      <!-- Results -->
+      <div style="flex:0.8;display:flex;flex-direction:column;gap:10px;">
+        <div class="caption" style="margin-bottom:2px;text-align:center;">Unified Results</div>
+        <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+          <div class="label" style="color:#86efac;font-size:12px;">Sorted by price ↑</div>
+          <div class="caption" style="margin-top:3px;">Best deals first</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:28px;" class="pill pill-green">Promise.allSettled — both merchants queried simultaneously</div>
+  </div>
+
+  <!-- ── Slide 11 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s11">
+    <div class="kicker">Product Comparison</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Agent Reasons Over Merchant Responses</h2>
+    <div style="display:flex;align-items:center;gap:40px;flex-wrap:wrap;justify-content:center;">
+      <!-- Flipkart card -->
+      <div class="product-card-demo">
+        <div class="pill pill-blue" style="margin-bottom:12px;">Flipkart</div>
+        <img src="/images/nike-air-max-270.webp" class="product-img-demo" alt="Nike Air Max 270" />
+        <div class="label" style="font-size:13px;">Nike Air Max 270</div>
+        <div class="caption" style="margin-top:4px;">Triple Black</div>
+        <div style="font-size:22px;font-weight:800;margin-top:8px;">₹4,799</div>
+        <div class="caption" style="color:var(--muted);">31% off</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div style="font-size:24px;color:var(--muted);">⚖️</div>
+        <div class="caption">Compare</div>
+        <div style="font-size:24px;color:var(--green);">↓</div>
+        <div class="pill pill-green" style="font-size:12px;">Cheapest wins</div>
+      </div>
+
+      <!-- Myntra card -->
+      <div class="product-card-demo" style="border-color:rgba(34,197,94,0.4);box-shadow:0 0 0 2px rgba(34,197,94,0.2);">
+        <div class="pill pill-orange" style="margin-bottom:12px;">Myntra</div>
+        <img src="/images/nike-air-max-270.webp" class="product-img-demo" alt="Nike Air Max 270" />
+        <div class="label" style="font-size:13px;">Nike Air Max 270</div>
+        <div class="caption" style="margin-top:4px;">Triple Black</div>
+        <div style="font-size:22px;font-weight:800;margin-top:8px;color:var(--green);">₹4,699</div>
+        <div class="caption" style="color:var(--green);">33% off ✓ Best Price</div>
+      </div>
+    </div>
+    <div style="margin-top:28px;padding:12px 24px;border-radius:12px;background:var(--green-dim);border:1px solid rgba(34,197,94,0.25);font-size:13px;color:#86efac;">
+      User says "Buy the cheapest one" → Agent automatically selects Myntra at ₹4,699
+    </div>
+  </div>
+
+  <!-- ── Slide 12 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s12">
+    <div class="kicker">Checkout Lifecycle</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Checkout Session State Machine</h2>
+    <div style="display:flex;gap:48px;align-items:flex-start;justify-content:center;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+        <div class="state-node" style="border-color:rgba(59,130,246,0.4);background:var(--blue-dim);color:#93c5fd;">PENDING</div>
+        <div class="state-arrow-down"><div class="state-connector" style="background:linear-gradient(var(--blue),var(--green));"></div></div>
+        <div class="state-node" style="border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;">CART UPDATED</div>
+        <div class="state-arrow-down"><div class="state-connector" style="background:linear-gradient(var(--green),var(--orange));"></div></div>
+        <div class="state-node" style="border-color:rgba(249,115,22,0.4);background:var(--orange-dim);color:#fdba74;">PAYMENT INITIATED</div>
+        <div class="state-arrow-down"><div class="state-connector" style="background:linear-gradient(var(--orange),var(--purple));"></div></div>
+        <div class="state-node" style="border-color:rgba(168,85,247,0.4);background:var(--purple-dim);color:#d8b4fe;">PAYMENT VERIFIED</div>
+        <div class="state-arrow-down"><div class="state-connector" style="background:linear-gradient(var(--purple),var(--green));"></div></div>
+        <div class="state-node" style="border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;font-size:15px;font-weight:800;">✅ CONFIRMED</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;padding-top:8px;max-width:300px;">
+        <div class="card card-sm" style="border-color:rgba(59,130,246,0.2);">
+          <div class="caption">POST /ucp/checkout</div>
+          <div class="label" style="font-size:12px;color:#93c5fd;margin-top:4px;">Creates session, returns sessionId</div>
+          <div class="caption" style="margin-top:4px;font-size:11px;">Agent stores sessionId for all future calls</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(34,197,94,0.2);">
+          <div class="caption">PUT /ucp/checkout/:id</div>
+          <div class="label" style="font-size:12px;color:#86efac;margin-top:4px;">Update qty, apply coupons</div>
+          <div class="caption" style="margin-top:4px;font-size:11px;">Can be called multiple times — merchant recalculates total each time</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(249,115,22,0.2);">
+          <div class="caption">POST /payment/init</div>
+          <div class="label" style="font-size:12px;color:#fdba74;margin-top:4px;">Returns payment token + methods</div>
+          <div class="caption" style="margin-top:4px;font-size:11px;">Token is time-limited (600s). Agent re-fetches UCP manifest to get fresh endpoint.</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(168,85,247,0.2);">
+          <div class="caption">POST /payment/verify</div>
+          <div class="label" style="font-size:12px;color:#d8b4fe;margin-top:4px;">Validates token, confirms order</div>
+          <div class="caption" style="margin-top:4px;font-size:11px;">Merchant records the order. Agent receives orderId and delivery ETA.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 13 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s13">
+    <div class="kicker">Conversation Intelligence</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Persistent Conversation State</h2>
+    <div class="cols-2" style="max-width:860px;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);">
+          <div class="label" style="color:#d8b4fe;font-size:12px;">Conversation State</div>
+          <div class="caption" style="margin-top:6px;line-height:1.7;font-family:monospace;font-size:11px;">
+            currentMerchant: "Myntra"<br/>
+            currentCheckoutSession: cs_mn_...<br/>
+            currentProducts: [5 items]<br/>
+            selectedProduct: Nike Air Max<br/>
+            selectedQuantity: 2<br/>
+            status: CHECKOUT_ACTIVE
+          </div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+          <div class="label" style="color:#86efac;font-size:12px;">Why this matters</div>
+          <div class="caption" style="margin-top:6px;line-height:1.6;">
+            User says <em style="color:var(--white);">"Add one more"</em> — the agent already knows it's the Nike Air Max on Myntra in the active session. No disambiguation needed.
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="caption" style="margin-bottom:4px;">Example conversation</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;font-size:12px;line-height:2;">
+          <div style="color:#93c5fd;">👤 "Find black Nike shoes"</div>
+          <div style="color:var(--muted);padding-left:16px;">→ 5 products found</div>
+          <div style="color:#93c5fd;">👤 "Buy the cheapest"</div>
+          <div style="color:var(--muted);padding-left:16px;">→ Checkout created on Myntra</div>
+          <div style="color:#93c5fd;">👤 "Add one more"</div>
+          <div style="color:var(--muted);padding-left:16px;">→ Qty updated to 2 ✓</div>
+          <div style="color:#93c5fd;">👤 "Apply SAVE10"</div>
+          <div style="color:var(--muted);padding-left:16px;">→ 10% coupon applied ✓</div>
+          <div style="color:#93c5fd;">👤 "Proceed to payment"</div>
+          <div style="color:#86efac;padding-left:16px;">→ ✅ Order MN17234... confirmed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 14 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s14">
+    <div class="kicker">Key Design Principle</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Commerce Orchestrator</h2>
+    <div style="display:flex;align-items:center;gap:40px;max-width:900px;width:100%;flex-wrap:wrap;justify-content:center;">
+      <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div class="card" style="border-color:rgba(59,130,246,0.4);text-align:center;width:100%;">
+          <div style="font-size:28px;margin-bottom:8px;">🧠</div>
+          <div class="label" style="color:#93c5fd;">LLM (Groq)</div>
+          <div class="caption" style="margin-top:8px;line-height:1.6;">Understands natural language.<br/>Returns structured JSON intents.<br/><strong style="color:#f87171;">Never touches UCP APIs.</strong></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div style="font-size:24px;color:var(--muted);">→</div>
+        <div class="pill pill-purple" style="font-size:11px;">Intent JSON</div>
+        <div style="font-size:24px;color:var(--muted);">→</div>
+      </div>
+      <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div class="card" style="border-color:rgba(249,115,22,0.4);text-align:center;width:100%;">
+          <div style="font-size:28px;margin-bottom:8px;">⚙️</div>
+          <div class="label" style="color:#fdba74;">Orchestrator</div>
+          <div class="caption" style="margin-top:8px;line-height:1.6;">Deterministic TypeScript.<br/>Calls UCP APIs.<br/><strong style="color:#86efac;">No hallucination risk.</strong></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div style="font-size:24px;color:var(--muted);">→</div>
+        <div class="pill pill-green" style="font-size:11px;">UCP Calls</div>
+        <div style="font-size:24px;color:var(--muted);">→</div>
+      </div>
+      <div style="flex:0.8;min-width:180px;display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div class="card" style="border-color:rgba(34,197,94,0.4);text-align:center;width:100%;">
+          <div style="font-size:28px;margin-bottom:8px;">🏪</div>
+          <div class="label" style="color:#86efac;">Merchants</div>
+          <div class="caption" style="margin-top:8px;line-height:1.6;">UCP-compliant servers.<br/>Standard responses.</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:24px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:860px;">
+      <div style="padding:7px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--muted);">💡 <strong style="color:var(--white);">Supported intents:</strong> SEARCH_PRODUCTS · CREATE_CHECKOUT · CHANGE_QUANTITY · APPLY_COUPON · COMPLETE_CHECKOUT · CANCEL_CHECKOUT · COMPARE_PRODUCTS · TRACK_ORDER</div>
+    </div>
+  </div>
+
+  <!-- ── Slide 15 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s15">
+    <div class="kicker">Frontend</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">React Chat Application</h2>
+    <div class="cols-2" style="max-width:860px;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);">
+          <div class="label" style="color:#93c5fd;">💬 Conversational Interface</div>
+          <div class="caption" style="margin-top:4px;">Markdown rendering, typing indicator, timestamps</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(249,115,22,0.3);">
+          <div class="label" style="color:#fdba74;">🛍️ Product Carousel</div>
+          <div class="caption" style="margin-top:4px;">Horizontal scroll, tap to open full detail popup with size selector</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+          <div class="label" style="color:#86efac;">🛒 Live Cart Summary</div>
+          <div class="caption" style="margin-top:4px;">Price breakdown, coupons, one-tap Pay button</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);">
+          <div class="label" style="color:#d8b4fe;">💳 Payment Modal</div>
+          <div class="caption" style="margin-top:4px;">Card form, UPI/Google Pay, Cash on Delivery</div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(99,102,241,0.3);">
+          <div class="label" style="color:#a5b4fc;">✅ Order Confirmation</div>
+          <div class="caption" style="margin-top:4px;">Order ID, merchant, payment method, delivery ETA</div>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 8px var(--blue);"></div>
+          <span style="font-size:12px;font-weight:600;color:var(--white);">UCP Shopping Agent</span>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <span class="pill pill-blue" style="padding:2px 8px;font-size:10px;">Flipkart</span>
+            <span class="pill pill-orange" style="padding:2px 8px;font-size:10px;">Myntra</span>
+          </div>
+        </div>
+        <div style="background:rgba(59,130,246,0.1);border-radius:10px;padding:10px;font-size:11px;color:#93c5fd;align-self:flex-end;max-width:70%;">
+          Find black Nike shoes under ₹5000
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;max-width:85%;">
+          Found <strong>4 products</strong> across Flipkart and Myntra. Prices ₹4,699 – ₹5,499. Sorted cheapest first.
+        </div>
+        <div style="display:flex;gap:6px;">
+          <div style="background:#111;border:1px solid var(--border);border-radius:8px;width:64px;height:72px;display:flex;align-items:center;justify-content:center;font-size:22px;">👟</div>
+          <div style="background:#111;border:1px solid var(--border);border-radius:8px;width:64px;height:72px;display:flex;align-items:center;justify-content:center;font-size:22px;">👟</div>
+          <div style="background:#111;border:1px solid var(--border);border-radius:8px;width:64px;height:72px;display:flex;align-items:center;justify-content:center;font-size:22px;">👟</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span style="background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:10px;">Buy the cheapest</span>
+          <span style="background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:10px;">Compare prices</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 16 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s16">
+    <div class="kicker">Live Demo</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:40px;">End-to-End Flow</h2>
+    <div class="flow" style="max-width:960px;flex-wrap:wrap;row-gap:16px;">
+      <div class="flow-item" style="border-color:rgba(59,130,246,0.4);background:var(--blue-dim);color:#93c5fd;flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">🔍</span><span>Search</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(168,85,247,0.4);background:var(--purple-dim);color:#d8b4fe;flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">⚖️</span><span>Compare</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">👆</span><span>Tap Card</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(249,115,22,0.4);background:var(--orange-dim);color:#fdba74;flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">🛒</span><span>Buy Now</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">📝</span><span>Update Qty</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">🏷️</span><span>Coupon</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(168,85,247,0.4);background:var(--purple-dim);color:#d8b4fe;flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">💳</span><span>Payment</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item" style="border-color:rgba(34,197,94,0.4);background:var(--green-dim);color:#86efac;flex-direction:column;gap:4px;align-items:center;padding:14px 18px;text-align:center;">
+        <span style="font-size:24px;">✅</span><span>Order Done</span>
+      </div>
+    </div>
+    <div style="margin-top:36px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+      <div class="pill pill-blue">localhost:5173</div>
+      <div class="pill pill-green">Flipkart :3001</div>
+      <div class="pill pill-orange">Myntra :3002</div>
+      <div class="pill pill-purple">Agent API :4000</div>
+    </div>
+  </div>
+
+  <!-- ── Slide 17 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s17">
+    <div class="kicker">Why UCP?</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Traditional Commerce vs AI Commerce</h2>
+    <div style="display:flex;gap:24px;max-width:860px;width:100%;">
+      <div class="compare-col">
+        <div class="label" style="color:var(--muted);font-size:14px;">❌ Traditional</div>
+        <div class="compare-item"><span class="cross">✗</span> Website-driven UX</div>
+        <div class="compare-item"><span class="cross">✗</span> Merchant-specific APIs</div>
+        <div class="compare-item"><span class="cross">✗</span> Manual checkout forms</div>
+        <div class="compare-item"><span class="cross">✗</span> N×M custom integrations</div>
+        <div class="compare-item"><span class="cross">✗</span> Agent leaves conversation</div>
+        <div class="compare-item"><span class="cross">✗</span> No context retention</div>
+      </div>
+      <div class="compare-col highlight">
+        <div class="label" style="color:#93c5fd;font-size:14px;">✅ AI Commerce with UCP</div>
+        <div class="compare-item"><span class="check">✓</span> Conversation-driven UX</div>
+        <div class="compare-item"><span class="check">✓</span> Standardized protocol</div>
+        <div class="compare-item"><span class="check">✓</span> Agent-native checkout</div>
+        <div class="compare-item"><span class="check">✓</span> One integration, all merchants</div>
+        <div class="compare-item"><span class="check">✓</span> Never leaves the chat</div>
+        <div class="compare-item"><span class="check">✓</span> Full session memory</div>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding:12px 24px;background:var(--blue-dim);border:1px solid rgba(59,130,246,0.25);border-radius:12px;font-size:12px;color:#93c5fd;text-align:center;max-width:700px;line-height:1.7;">
+      💡 <strong style="color:var(--white);">The fundamental shift:</strong> With UCP, a merchant implements a protocol once and becomes reachable by every AI agent in the ecosystem — forever.
+    </div>
+  </div>
+
+  <!-- ── Slide 18 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s18">
+    <div class="kicker">Implementation Status</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">What's Built</h2>
+    <div class="checklist-grid">
+      <div class="check-item"><span class="check-icon">✅</span>AI Shopping Agent (NLU + Orchestrator)</div>
+      <div class="check-item"><span class="check-icon">✅</span>UCP Merchant Discovery</div>
+      <div class="check-item"><span class="check-icon">✅</span>Parallel Catalog Search</div>
+      <div class="check-item"><span class="check-icon">✅</span>Product Comparison</div>
+      <div class="check-item"><span class="check-icon">✅</span>Checkout Session Lifecycle</div>
+      <div class="check-item"><span class="check-icon">✅</span>Coupon / Quantity Updates</div>
+      <div class="check-item"><span class="check-icon">✅</span>UCP Payment Flow (Init + Verify)</div>
+      <div class="check-item"><span class="check-icon">✅</span>Card / UPI / COD Payment Modal</div>
+      <div class="check-item"><span class="check-icon">✅</span>Order Confirmation</div>
+      <div class="check-item"><span class="check-icon">✅</span>Conversation State Management</div>
+      <div class="check-item"><span class="check-icon">✅</span>React Chat UI with Product Cards</div>
+      <div class="check-item"><span class="check-icon">✅</span>Flipkart + Myntra Mock Servers</div>
+    </div>
+  </div>
+
+  <!-- ── Slide 19 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s19">
+    <div class="kicker">What's Next</div>
+    <h2 class="hero" style="font-size:clamp(22px,3vw,44px);margin-bottom:36px;">Roadmap</h2>
+    <div class="cols-3" style="max-width:820px;">
+      <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">🔐</div>
+        <div class="label" style="color:#93c5fd;font-size:12px;">Authentication</div>
+        <div class="caption" style="margin-top:4px;">OAuth, JWT, merchant identity linking</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">💰</div>
+        <div class="label" style="color:#86efac;font-size:12px;">Real Payments</div>
+        <div class="caption" style="margin-top:4px;">Razorpay, Stripe, UPI Live integration</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">🔴</div>
+        <div class="label" style="color:#d8b4fe;font-size:12px;">Redis Session Store</div>
+        <div class="caption" style="margin-top:4px;">Persistent conversations across restarts</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(249,115,22,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">🌐</div>
+        <div class="label" style="color:#fdba74;font-size:12px;">Dynamic Discovery</div>
+        <div class="caption" style="margin-top:4px;">Merchants publish UCP manifests publicly</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(99,102,241,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">🎙️</div>
+        <div class="label" style="color:#a5b4fc;font-size:12px;">Voice Interface</div>
+        <div class="caption" style="margin-top:4px;">Whisper + TTS for voice-first shopping</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(251,191,36,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">📸</div>
+        <div class="label" style="color:#fcd34d;font-size:12px;">Image Search</div>
+        <div class="caption" style="margin-top:4px;">Upload a photo, find the product</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(239,68,68,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">🤖</div>
+        <div class="label" style="color:#f87171;font-size:12px;">Autonomous Agents</div>
+        <div class="caption" style="margin-top:4px;">Agents that shop on your behalf</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">📦</div>
+        <div class="label" style="color:#86efac;font-size:12px;">Order Tracking</div>
+        <div class="caption" style="margin-top:4px;">Real-time delivery updates in chat</div>
+      </div>
+      <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);">
+        <div style="font-size:22px;margin-bottom:8px;">🏪</div>
+        <div class="label" style="color:#93c5fd;font-size:12px;">More Merchants</div>
+        <div class="caption" style="margin-top:4px;">Register URL → auto-discovery, zero code</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 20 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s20">
+    <div class="kicker">Key Takeaways</div>
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center;max-width:720px;width:100%;">
+      <div class="takeaway t1" style="display:flex;flex-direction:column;gap:6px;">
+        <span>🤖 AI is becoming the primary <span class="grad-blue">shopping interface</span></span>
+        <span style="font-size:13px;font-weight:400;color:var(--muted);">Users already ask AI before they search. The next step is AI that can also act.</span>
+      </div>
+      <div class="takeaway t2" style="display:flex;flex-direction:column;gap:6px;">
+        <span>🌐 Commerce needs a <span class="grad-green">standardized protocol</span> for AI agents</span>
+        <span style="font-size:13px;font-weight:400;color:var(--muted);">Without a standard, every merchant-agent pair needs custom integration. UCP solves this at the protocol layer.</span>
+      </div>
+      <div class="takeaway t3" style="display:flex;flex-direction:column;gap:6px;">
+        <span>⚡ UCP enables <span class="grad-purple">interoperability</span> — any agent, any merchant</span>
+        <span style="font-size:13px;font-weight:400;color:var(--muted);">Implement UCP once. Get discovered, searched, checked out, and paid — by any AI agent in the ecosystem.</span>
+      </div>
+      <div class="takeaway t4" style="font-size:clamp(18px,2.5vw,30px);">
+        <span class="grad-blue">One Agent.</span>
+        &nbsp;&nbsp;<span class="grad-orange">Many Merchants.</span>
+        &nbsp;&nbsp;<span class="grad-purple">One Protocol.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 21 ────────────────────────────────────────────────── -->
+  <div class="slide" id="s21" style="background:radial-gradient(ellipse 70% 50% at 50% 100%, rgba(59,130,246,0.1), transparent);">
+    <div class="s1-grid"></div>
+    <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center;">
+      <h1 class="hero" style="font-size:clamp(40px,6vw,80px);">
+        <span class="grad-multi">Questions?</span>
+      </h1>
+      <p class="sub">Let's talk about the future of AI-native commerce.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:16px;">
+        <div class="card card-sm" style="border-color:rgba(59,130,246,0.3);display:flex;align-items:center;gap:10px;padding:14px 20px;">
+          <span style="font-size:18px;">🐙</span>
+          <div>
+            <div class="label" style="color:#93c5fd;font-size:12px;">GitHub</div>
+            <div class="caption">github.com/MRPERFECT0603/talkDemo</div>
+          </div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(34,197,94,0.3);display:flex;align-items:center;gap:10px;padding:14px 20px;">
+          <span style="font-size:18px;">📄</span>
+          <div>
+            <div class="label" style="color:#86efac;font-size:12px;">Demo</div>
+            <div class="caption">localhost:5173</div>
+          </div>
+        </div>
+        <div class="card card-sm" style="border-color:rgba(168,85,247,0.3);display:flex;align-items:center;gap:10px;padding:14px 20px;">
+          <span style="font-size:18px;">✉️</span>
+          <div>
+            <div class="label" style="color:#d8b4fe;font-size:12px;">Contact</div>
+            <div class="caption">vivekshaurya62@gmail.com</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:24px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <span class="pill pill-blue">AI Agent</span>
+        <span class="pill pill-green">UCP Protocol</span>
+        <span class="pill pill-orange">Groq LLM</span>
+        <span class="pill pill-purple">React + TypeScript</span>
+        <span class="pill" style="background:rgba(255,255,255,0.06);border-color:var(--border);color:var(--muted);">Express API</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn" id="prevBtn" onclick="navigate(-1)">‹</button>
+  <span class="nav-counter" id="navCounter">1 / 21</span>
+  <button class="nav-btn" id="nextBtn" onclick="navigate(1)">›</button>
+</div>
+
+<script>
+  const TOTAL = 21;
+  let current = 1;
+
+  function showSlide(n) {
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.getElementById('s' + n).classList.add('active');
+    document.getElementById('navCounter').textContent = n + ' / ' + TOTAL;
+    document.getElementById('slideNum').textContent = String(n).padStart(2,'0') + ' / ' + TOTAL;
+    document.getElementById('progressBar').style.width = (n / TOTAL * 100) + '%';
+    document.getElementById('prevBtn').style.opacity = n === 1 ? '0.3' : '1';
+    document.getElementById('nextBtn').style.opacity = n === TOTAL ? '0.3' : '1';
+    current = n;
+  }
+
+  function navigate(dir) {
+    const next = Math.min(Math.max(current + dir, 1), TOTAL);
+    if (next !== current) showSlide(next);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); navigate(1); }
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); navigate(-1); }
+    if (e.key === 'Home') showSlide(1);
+    if (e.key === 'End')  showSlide(TOTAL);
+  });
+
+  // Touch swipe
+  let touchX = 0;
+  document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend',   e => {
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 50) navigate(dx < 0 ? 1 : -1);
+  });
+
+  // Set date on title slide
+  document.getElementById('slideDate').textContent = new Date().toLocaleDateString('en-IN', { year:'numeric', month:'long', day:'numeric' });
+
+  // Init
+  showSlide(1);
+</script>
+</body>
+</html>
